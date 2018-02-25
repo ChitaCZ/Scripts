@@ -1,0 +1,50 @@
+#!/bin/bash
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+
+# Script to backup all DBs
+#
+#     CREATE USER 'backup'@'localhost' IDENTIFIED BY '__PASSWORD__';
+#     GRANT SELECT, SHOW VIEW, RELOAD, REPLICATION CLIENT, EVENT, TRIGGER ON *.* TO 'backup'@'localhost';
+#     GRANT LOCK TABLES ON *.* TO 'backup'@'localhost';
+
+
+HOST=localhost
+USER=backup
+PW=__PASSWORD__
+DEST=/data/mysql_backup
+
+MINUTE=`date +"%M"`
+HOUR=`date +"%H"`
+DAY=`date +"%d"`
+MONTH=`date +"%m"`
+YEAR=`date +"%Y"`
+
+
+if [ ! -d $DEST ]; then
+   echo "Fatal error: DIR not found, ABORT!"
+   exit
+fi
+
+exec 2>&1
+
+echo "`date`: Starting dumpdb into $DEST"
+START=`date +%s`
+
+# Create new backup
+for i in `mysqlshow -h $HOST -u $USER -p$PW | grep -v -e '-----------' -e ' Databases ' | sed 's/^| *\([^ ]*\) *|$/\1/g'`; do
+   if [ "$i" != "performance_schema" ] && [ "$i" != "information_schema" ]; then
+        STARTDB=`date +%s`
+        echo -n "Backing up database: $i ..."
+        (mysqldump --add-drop-table --quote-names -q -u $USER -h $HOST -p$PW $i | \
+                gzip > "$DEST/$YEAR-$MONTH-$DAY-$HOUR-$MINUTE-$i.gz") || echo "Error!"
+        ENDDB=`date +%s`
+        DIFFDB=$(($ENDDB - $STARTDB))
+        echo "done ($DIFFDB seconds)"
+   else
+        echo "Skipping database $i"
+   fi
+done
+
+END=`date +%s`
+DIFF=$(($END - $START))
+echo "`date`: Finished dumpdb, took $DIFF seconds."

@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ ! $# -eq 3 ]; then
+  echo "Usage: $0 login database_name password"
+  exit
+fi
+
+mysql.login mysql <<-END
+create database $2;
+grant all privileges on $2.* to $1@localhost identified by '$3' with grant option;
+grant all privileges on $2.* to $1@'%' identified by '$3' with grant option;
+flush privileges;
+quit
+END
+echo "OK"

@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# programm definition
+#####################
+RM=`which rm`
+CP=`which cp`
+MKDIR=`which mkdir`
+DATE=`which date`
+MYSQL_BACKUP_PROGRAM="mysql.backup.all"
+
+# time variables definition
+###########################
+DAY=`$DATE +"%d"`
+MONTH=`$DATE +"%m"`
+YEAR=`$DATE +"%Y"`
+
+# directory definition
+######################
+TMP_DIR="/data/mysql_backup"
+BACKUP_DIR="/backup/databases"
+DIR_NAME="$YEAR-$MONTH-$DAY"
+
+# usage
+#######
+#    Crontab - Backup of all DBs
+#    5 */6 * * * mysql.backup.cron > /dev/null 2>&1
+
+
+
+# main
+######
+
+# delete temp directory
+$RM -rf $TMP_DIR/*
+
+# backing-up databases and paste files to temp dir
+$MYSQL_BACKUP_PROGRAM
+
+# make actual backup directory
+$MKDIR -p $BACKUP_DIR/$DIR_NAME
+
+# copy files to date structure
+$CP -f $TMP_DIR/* $BACKUP_DIR/$DIR_NAME
+

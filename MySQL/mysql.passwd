@@ -1,0 +1,16 @@
+#!/bin/bash
+##
+##  mysql.passwd -- Password change for MySQL user
+##
+
+if [ ! $(($#)) -eq 2 ];
+then
+  echo "Usage: $0 login password"
+else
+mysql.login mysql <<-END
+update user set password=password('$2') where user='$1';
+flush privileges;
+quit
+END
+  echo "Password for user $1 changed.";
+fi

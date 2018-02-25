@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ ! $# -eq 1 ]; then
+  echo "Usage: $0 login"
+  exit
+fi
+
+mysql.login mysql <<-END
+drop database $1;
+delete from db where user='$1';
+delete from user where user='$1';
+flush privileges;
+quit
+END
+echo "OK"
