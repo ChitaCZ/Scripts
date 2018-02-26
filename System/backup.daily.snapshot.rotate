@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# Usage in crontab
+#
+#      # Every Monday 3AM, in daily 6 there qill be backup from Sunday 4AM
+#      0 3 * * 1 backup.daily.snapshot.rotate >/dev/null
+#      # Daily at 4AM to take snapshot of current state
+#      0 4 * * * backup.make.snapshot >/dev/null
+
+
+unset PATH
+
+# ------------- system commands used by this script --------------------
+ID=/usr/bin/id
+ECHO=/bin/echo
+
+RM=/bin/rm
+MV=/bin/mv
+CP=/bin/cp
+
+# ------------- file locations -----------------------------------------
+
+SNAPSHOT_RW=/backup/data
+
+# ------------- the script itself --------------------------------------
+
+# make sure we're running as root
+if (( `$ID -u` != 0 )); then { $ECHO "Sorry, must be root.  Exiting..."; exit; } fi
+
+# step 1: delete the oldest snapshot, if it exists:
+if [ -d $SNAPSHOT_RW/weekly.3 ] ; then                  \
+$RM -rf $SNAPSHOT_RW/weekly.3 ;                         \
+fi ;
+
+# step 2: shift the middle snapshots(s) back by one, if they exist
+if [ -d $SNAPSHOT_RW/weekly.2 ] ; then                  \
+$MV $SNAPSHOT_RW/weekly.2 $SNAPSHOT_RW/weekly.3 ;       \
+fi;
+if [ -d $SNAPSHOT_RW/weekly.1 ] ; then                  \
+$MV $SNAPSHOT_RW/weekly.1 $SNAPSHOT_RW/weekly.2 ;       \
+fi;
+if [ -d $SNAPSHOT_RW/weekly.0 ] ; then                  \
+$MV $SNAPSHOT_RW/weekly.0 $SNAPSHOT_RW/weekly.1;        \
+fi;
+
+# step 6: make a hard-link-only (except for dirs) copy of
+# hourly.6, assuming that exists, into weekly.0
+if [ -d $SNAPSHOT_RW/daily.6 ] ; then                   \
+$CP -al $SNAPSHOT_RW/daily.6 $SNAPSHOT_RW/weekly.0 ;    \
+fi;
+
+# note: do *not* update the mtime of weekly.0; it will reflect
+# when hourly.6 was made, which should be correct.

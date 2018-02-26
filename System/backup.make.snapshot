@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# Usage in crontab
+#
+#      # Every Monday 3AM, in daily 6 there qill be backup from Sunday 4AM
+#      0 3 * * 1 backup.daily.snapshot.rotate >/dev/null
+#      # Daily at 4AM to take snapshot of current state
+#      0 4 * * * backup.make.snapshot >/dev/null
+
+
+unset PATH
+
+# ------------- system commands used by this script --------------------
+ID=/usr/bin/id
+ECHO=/bin/echo
+
+RM=/bin/rm
+MV=/bin/mv
+CP=/bin/cp
+TOUCH=/bin/touch
+
+RSYNC=/usr/bin/rsync
+
+# ------------- file locations -----------------------------------------
+
+BASE_DIR=/data
+SNAPSHOT_RW=/backup/data
+SOURCE_LIST=backup.list
+EXCLUDE_LIST=backup.list.exclude
+
+# ------------- the script itself --------------------------------------
+
+# make sure we're running as root
+if (( `$ID -u` != 0 )); then { $ECHO "Sorry, must be root.  Exiting..."; exit; } fi
+
+# rotating snapshots of /data 
+
+# step 1: delete the oldest snapshot, if it exists:
+if [ -d $SNAPSHOT_RW/daily.6 ] ; then                   \
+$RM -rf $SNAPSHOT_RW/daily.6 ;                          \
+fi ;
+
+# step 2: shift the middle snapshots(s) back by one, if they exist
+if [ -d $SNAPSHOT_RW/daily.5 ] ; then                   \
+$MV $SNAPSHOT_RW/daily.5 $SNAPSHOT_RW/daily.6 ; \
+fi;
+if [ -d $SNAPSHOT_RW/daily.4 ] ; then                   \
+$MV $SNAPSHOT_RW/daily.4 $SNAPSHOT_RW/daily.5 ; \
+fi;
+if [ -d $SNAPSHOT_RW/daily.3 ] ; then                   \
+$MV $SNAPSHOT_RW/daily.3 $SNAPSHOT_RW/daily.4 ; \
+fi;
+if [ -d $SNAPSHOT_RW/daily.2 ] ; then                   \
+$MV $SNAPSHOT_RW/daily.2 $SNAPSHOT_RW/daily.3 ; \
+fi;
+if [ -d $SNAPSHOT_RW/daily.1 ] ; then                   \
+$MV $SNAPSHOT_RW/daily.1 $SNAPSHOT_RW/daily.2 ; \
+fi;
+
+# step 3: make a hard-link-only (except for dirs) copy of the latest snapshot,
+# if that exists
+if [ -d $SNAPSHOT_RW/daily.0 ] ; then                   \
+$CP -al $SNAPSHOT_RW/daily.0 $SNAPSHOT_RW/daily.1 ;     \
+fi;
+
+# step 4: rsync from the system into the latest snapshot (notice that
+# rsync behaves like cp --remove-destination by default, so the destination
+# is unlinked first.  If it were not so, this would copy over the other
+# snapshot(s) too!
+
+while read directory; do
+  $RSYNC -avr --delete --delete-excluded --exclude-from="$EXCLUDE_LIST" "$BASE_DIR/$directory" "$SNAPSHOT_RW/daily.0"
+done < $SOURCE_LIST
+
+# step 5: update the mtime of daily.0 to reflect the snapshot time
+$TOUCH $SNAPSHOT_RW/daily.0 ;
+
+# and thats it for home.
